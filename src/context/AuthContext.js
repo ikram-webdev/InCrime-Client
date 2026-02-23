@@ -3,9 +3,10 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
-// Always use env variable — no localhost fallback in production
-const API_URL = process.env.REACT_APP_API_URL || 'https://incrime-server.onrender.com';
-axios.defaults.baseURL = API_URL;
+// Create an axios instance
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'https://incrime-server.onrender.com',
+});
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -14,17 +15,18 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      // Instance headers update karein
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       fetchCurrentUser();
     } else {
-      delete axios.defaults.headers.common['Authorization'];
+      delete api.defaults.headers.common['Authorization'];
       setLoading(false);
     }
   }, [token]);
 
   const fetchCurrentUser = async () => {
     try {
-      const { data } = await axios.get('/api/auth/me');
+      const { data } = await api.get('/api/auth/me');
       if (data.success) setUser(data.user);
     } catch {
       logout();
@@ -34,22 +36,21 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (username, password) => {
-    const { data } = await axios.post('/api/auth/login', { username, password });
+    // Axios ki jagah 'api' instance use karein
+    const { data } = await api.post('/api/auth/login', { username, password });
     if (data.success) {
       localStorage.setItem('incrime_token', data.token);
       setToken(data.token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
       setUser(data.user);
     }
     return data;
   };
 
   const register = async (formData) => {
-    const { data } = await axios.post('/api/auth/register', formData);
+    const { data } = await api.post('/api/auth/register', formData);
     if (data.success) {
       localStorage.setItem('incrime_token', data.token);
       setToken(data.token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
       setUser(data.user);
     }
     return data;
@@ -59,7 +60,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('incrime_token');
     setToken(null);
     setUser(null);
-    delete axios.defaults.headers.common['Authorization'];
+    delete api.defaults.headers.common['Authorization'];
   };
 
   return (
@@ -74,8 +75,4 @@ export function AuthProvider({ children }) {
   );
 }
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be inside AuthProvider');
-  return ctx;
-};
+export const useAuth = () => useContext(AuthContext);
